@@ -1,0 +1,207 @@
+﻿Program.Sub.Preflight.Start
+V.Global.sDir.Declare(String,"")
+V.Global.sDirFile.Declare(String,"")
+V.Global.sFileDir.Declare(String,"")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String,"")
+
+f.Intrinsic.Control.If(v.Caller.Hook,=,15290)
+	F.Intrinsic.Control.CallSub(Get_Dir)
+	F.Intrinsic.Control.CallSub(Get_Data)
+F.Intrinsic.Control.Else
+	f.Intrinsic.Control.End
+f.Intrinsic.Control.endif
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	F.Intrinsic.String.Build("Project: GCG_6835_PAYCOR_EXPORT.g2u {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.NewLine,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Exit)
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Exit.Start
+F.Intrinsic.Control.SetErrorHandler("Exit_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String,"")
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Exit_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+Program.Sub.Exit.End
+
+Program.Sub.Get_Data.Start
+F.Intrinsic.Control.SetErrorHandler("Get_Data_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String,"")
+v.Local.sRunTime.Declare(String,"")
+v.Local.sRunDate.Declare(String,"")
+V.Local.sSql.Declare(String,"")
+V.Local.i.Declare(Long,0)
+V.Local.sYear.Declare(String,"")
+V.Local.sDescr.Declare(String,"")
+V.Local.sFile.Declare(String,"")
+V.Local.sTime.Declare(String,"")
+
+f.Intrinsic.String.Mid(v.Passed.888888,9,6,v.Local.sRunTime)
+f.Intrinsic.String.Left(v.Passed.888888,8,v.Local.sRunDate)
+f.Intrinsic.String.Left(v.Passed.888888,4,v.Local.sYear)
+'V.Local.sRunDate.Set("20201112")
+'V.Local.sYear.Set("2020")
+'V.Local.sRunTime.Set("132612")
+
+F.Intrinsic.String.Build("{0}_{1}",V.Local.sRunDate,V.Local.sRunTime,V.Local.sTime)
+
+F.Data.DataTable.Create("PyrlExport",True)
+F.Data.DataTable.AddColumn("PyrlExport","Emp_No",String)
+F.Data.DataTable.AddColumn("PyrlExport","Name",String)
+F.Data.DataTable.AddColumn("PyrlExport","Dept",String)
+F.Data.DataTable.AddColumn("PyrlExport","Agency",String)
+F.Data.DataTable.AddColumn("PyrlExport","Reg_Hours",String)
+F.Data.DataTable.AddColumn("PyrlExport","Overtime",String)
+F.Data.DataTable.AddColumn("PyrlExport","Hours_Code",String)
+F.Data.DataTable.AddColumn("PyrlExport","Coded_Hours",String)
+
+F.Data.DataTable.AddRow("PyrlExport","Emp_No","Employee Number","Name","Employee Name","Dept","Department Code","Agency","Agency Name","Reg_Hours","Regular Hours","Overtime","Overtime Hours","Hours_Code","Hours Code","Coded_Hours","Coded Hours")
+
+F.ODBC.Connection!Con.OpenCompanyConnection
+
+f.Intrinsic.String.Build("select Employee,Type, EC, sum(CAST(RTRIM(hours) AS DOUBLE)) as HRS from Pyrl_Labor_Xfer where Run_Cymd = '{0}' and Run_Time = '{1}'  group by Employee, Type, EC order by Employee",v.Local.sRunDate,v.Local.sRunTime,v.Local.sSql)
+F.Data.DataTable.CreateFromSQL("Pyrl","con",V.Local.sSql,True)
+F.Data.DataTable.AddColumn("Pyrl","Name",String)
+F.Data.DataTable.AddColumn("Pyrl","Dept",String)
+F.Data.DataTable.AddColumn("Pyrl","Agency",String)
+
+F.Data.Dictionary.CreateFromSQL("Agency","con","select Employee,rtrim(Comments_1) from Employee_Mstr")
+F.Data.Dictionary.SetDefaultReturn("Agency","")
+F.Data.DataTable.FillFromDictionary("Pyrl","Agency","Employee","Agency")
+F.Data.Dictionary.Close("Agency")
+
+F.Data.Dictionary.CreateFromSQL("Name","con","select Employee,rtrim(Name) from Employee_Mstr")
+F.Data.Dictionary.SetDefaultReturn("Name","")
+F.Data.DataTable.FillFromDictionary("Pyrl","Name","Employee","Name")
+F.Data.Dictionary.Close("Name")
+
+F.Data.Dictionary.CreateFromSQL("Dept","con","select Employee,rtrim(Dept_Employee) from Employee_Mstr")
+F.Data.Dictionary.SetDefaultReturn("Dept","")
+F.Data.DataTable.FillFromDictionary("Pyrl","Dept","Employee","Dept")
+F.Data.Dictionary.Close("Dept")
+
+F.Intrinsic.Control.For(V.Local.i,0,V.DataTable.Pyrl.RowCount--,1)
+	F.Intrinsic.Control.SelectCase(V.DataTable.Pyrl(V.Local.i).Type!FieldValTrim)
+		F.Intrinsic.Control.Case("RT")
+			F.Data.DataTable.AddRow("PyrlExport","Emp_No",V.DataTable.Pyrl(V.Local.i).Employee!FieldValTrim,"Name",V.DataTable.Pyrl(V.Local.i).Name!FieldValTrim,"Agency",V.DataTable.Pyrl(V.Local.i).Agency!FieldValTrim,"Dept",V.DataTable.Pyrl(V.Local.i).Dept!FieldValTrim,"Reg_Hours",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat,"Hours_Code","REG","Coded_Hours",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat)
+		F.Intrinsic.Control.Case("OT")
+			F.Data.DataTable.AddRow("PyrlExport","Emp_No",V.DataTable.Pyrl(V.Local.i).Employee!FieldValTrim,"Name",V.DataTable.Pyrl(V.Local.i).Name!FieldValTrim,"Agency",V.DataTable.Pyrl(V.Local.i).Agency!FieldValTrim,"Dept",V.DataTable.Pyrl(V.Local.i).Dept!FieldValTrim,"Overtime",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat,"Hours_Code","OT","Coded_Hours",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat)
+		F.Intrinsic.Control.Case("DT")
+			F.Data.DataTable.AddRow("PyrlExport","Emp_No",V.DataTable.Pyrl(V.Local.i).Employee!FieldValTrim,"Name",V.DataTable.Pyrl(V.Local.i).Name!FieldValTrim,"Agency",V.DataTable.Pyrl(V.Local.i).Agency!FieldValTrim,"Dept",V.DataTable.Pyrl(V.Local.i).Dept!FieldValTrim,"Overtime",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat,"Hours_Code","DT","Coded_Hours",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat)
+		F.Intrinsic.Control.CaseElse
+			F.Intrinsic.String.Build("Select Descr From Payroll_Pay_Cats Where Year = '{0}' and Pay_Category = {1}",V.Local.sYear,V.DataTable.Pyrl(V.Local.i).EC!FieldVal,V.Local.sSql)
+			F.ODBC.Connection!Con.ExecuteAndReturn(V.Local.sSql,V.Local.sDescr)
+			V.Local.sDescr.Set(V.Local.sDescr.Trim)
+			F.Intrinsic.Control.If(V.Local.sDescr.UCase,<>,"PTO - VACATION","AND",V.Local.sDescr.UCase,<>,"PTO - BONUS")
+				F.Data.DataTable.AddRow("PyrlExport","Emp_No",V.DataTable.Pyrl(V.Local.i).Employee!FieldValTrim,"Name",V.DataTable.Pyrl(V.Local.i).Name!FieldValTrim,"Agency",V.DataTable.Pyrl(V.Local.i).Agency!FieldValTrim,"Dept",V.DataTable.Pyrl(V.Local.i).Dept!FieldValTrim,"Hours_Code",V.Local.sDescr,"Coded_Hours",V.DataTable.Pyrl(V.Local.i).HRS!FieldValFloat)
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndSelect
+F.Intrinsic.Control.Next(V.Local.i)
+
+F.Data.Datatable.Close("Pyrl")
+
+F.ODBC.Connection!Con.Close
+
+F.Intrinsic.Control.If(V.DataTable.PyrlExport.RowCount--,>,0)
+'	V.Global.sFileDir.Set("C:\Apps\Global\Custom\Testing")
+	F.Intrinsic.Control.If(V.Global.sFileDir.Right1,=,"\")
+		F.Intrinsic.String.Build("{0}PaycoreExport_{1}.csv",V.Global.sFileDir,V.Local.sTime,V.Local.sFile)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Build("{0}\PaycoreExport_{1}.csv",V.Global.sFileDir,V.Local.sTime,V.Local.sFile)
+	F.Intrinsic.Control.EndIf
+	
+	F.Data.DataTable.SaveToCSV("PyrlExport",V.Local.sFile,False)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Get_Data_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	F.Intrinsic.String.Build("Project: GCG_6835_PAYCOR_EXPORT.g2u {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.NewLine,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Exit)
+F.Intrinsic.Control.EndIf
+Program.Sub.Get_Data.End
+
+Program.Sub.Get_Dir.Start
+F.Intrinsic.Control.SetErrorHandler("Get_Dir_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String,"")
+V.Local.sMsg.Declare(String,"")
+V.Local.bRet.Declare(Boolean,False)
+
+F.Intrinsic.Control.If(V.Caller.GlobalDir.Right1,=,"\")
+	F.Intrinsic.String.Build("{0}Custom",V.Caller.GlobalDir,V.Global.sDir)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Build("{0}\Custom",V.Caller.GlobalDir,V.Global.sDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.DirExists(V.Global.sDir,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet,=,False)
+	F.Intrinsic.File.CreateDir(V.Global.sDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("{0}\6835",V.Global.sDir,V.Global.sDir)
+
+F.Intrinsic.File.DirExists(V.Global.sDir,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet,=,False)
+	F.Intrinsic.File.CreateDir(V.Global.sDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("{0}\{1}_PaycoreExport.txt",V.Global.sDir,V.Caller.CompanyCode,V.Global.sDirFile)
+
+F.Intrinsic.File.Exists(V.Global.sDirFile,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet)
+	F.Intrinsic.File.File2String(V.Global.sDirFile,V.Global.sFileDir)
+	F.Intrinsic.Control.If(V.Global.sFileDir.Trim,=,"")
+		V.Global.sFileDir.Set("\\swift01\HR\HR ADMINISTRATION FOLDERS\PAYCOR FILE\PAYROLL HOURS\GSS Payroll Hours")
+		F.Intrinsic.File.String2File(V.Global.sDirFile,V.Global.sFileDir)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	V.Global.sFileDir.Set("\\swift01\HR\HR ADMINISTRATION FOLDERS\PAYCOR FILE\PAYROLL HOURS\GSS Payroll Hours")
+	F.Intrinsic.File.String2File(V.Global.sDirFile,V.Global.sFileDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.File.DirExists(V.Global.sFileDir,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet,=,False)
+	F.Intrinsic.String.Build("File Path: {0} does not exists. {1}Export file will be saved to Location: {2}",V.Global.sFileDir,V.Ambient.NewLine,V.Global.sDir,V.Local.sMsg)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Attention")
+	V.Global.sFileDir.Set(V.Global.sDir)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Get_Dir_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	F.Intrinsic.String.Build("Project: GCG_6835_PAYCOR_EXPORT.g2u {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.NewLine,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Exit)
+F.Intrinsic.Control.EndIf
+Program.Sub.Get_Dir.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$rking$}$20220714122304531$}$QNdZLVy4bWuiWa9jh1ZTiKVzNnEzrvL4QsQZjTHT9aLaXXPtBVhEhWZlj5MgbEOOVYCG1BW8w8o=
+Program.Sub.Comments.End
